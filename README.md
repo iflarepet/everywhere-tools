@@ -1,6 +1,6 @@
 # Everywhere Tools
 
-A standalone React + Vite project with five tools at `/`:
+A standalone React + Vite project with six tools at `/`:
 
 - **Notes** (`/notes`): copied from `../notes-sync-app`, including live shared notes, code sharing, QR generation, and camera scanning.
 - **Chat everywhere** (`/chat`): create or join an 8-character room, invite through a link/QR code, and exchange live messages. The last 500 messages per room are saved on disk.
@@ -8,6 +8,8 @@ A standalone React + Vite project with five tools at `/`:
 - **JSON beautifier** (`/json`): validate, format with 2 or 4 spaces, minify, copy, and download JSON.
 
 - **JWT decoder** (`/jwt`): locally decode header and payload, copy JSON, and inspect UTC timestamps. Does not verify signatures or decrypt JWE tokens. Tokens are never sent to the server or saved in browser storage.
+
+- **Text utilities** (`/text`): change case, remove duplicate/blank lines, trim lines, sort naturally, and count words/characters/lines. Processed in the browser; use a result as input to chain operations.
 
 ## Run locally
 

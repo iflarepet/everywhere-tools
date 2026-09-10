@@ -53,7 +53,7 @@ test('notes and chat sync, isolate rooms, reject invalid input, and survive rest
     assert.equal((await request('/api/chat/AAAAAAAA')).status, 404)
     assert.equal((await request('/api/chat/invalid')).status, 400)
     assert.equal((await request('/api/no-such-endpoint')).status, 404)
-    for (const route of ['/', '/notes', '/chat', '/compare', '/json', '/jwt']) assert.equal((await fetch(base + route)).status, 200)
+    for (const route of ['/', '/notes', '/chat', '/compare', '/json', '/jwt', '/text']) assert.equal((await fetch(base + route)).status, 200)
     streams.forEach(c => c.abort())
     // The copied notes service batches disk writes for 100ms.
     await new Promise(resolve => setTimeout(resolve, 150))
