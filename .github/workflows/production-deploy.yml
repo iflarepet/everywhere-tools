@@ -1,0 +1,102 @@
+name: Deploy Everywhere Tools
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-everywhere-tools
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy to VPS
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.PROD_SSH_HOST || '45.77.170.239' }}
+      DEPLOY_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+      DEPLOY_USER: ${{ secrets.PROD_SSH_USER || 'github-deploy' }}
+      APP_PATH: ${{ vars.PROD_EVERYWHERE_TOOLS_PATH || '/var/www/everywhere-tools' }}
+      APP_URL: ${{ vars.PROD_EVERYWHERE_TOOLS_URL || 'http://tools.flare.pet' }}
+      APP_PORT: ${{ vars.PROD_EVERYWHERE_TOOLS_PORT || '3007' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate deployment secrets
+        run: |
+          if [ -z "${{ secrets.PROD_SSH_KEY }}" ]; then
+            echo "Missing required production secret: PROD_SSH_KEY"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack release
+        run: |
+          mkdir -p release
+          cp -R dist release/dist
+          cp server.js release/server.js
+          cp chat-server.js release/chat-server.js
+          cp package.json release/package.json
+          tar -czf everywhere-tools-release.tgz -C release .
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload release
+        run: |
+          RELEASE="everywhere-tools-${GITHUB_SHA}"
+          ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "set -eux
+            mkdir -p '${APP_PATH}/releases/${RELEASE}' '${APP_PATH}/shared/data'"
+          scp -P "$DEPLOY_PORT" everywhere-tools-release.tgz "${DEPLOY_USER}@${DEPLOY_HOST}:${APP_PATH}/releases/${RELEASE}/release.tgz"
+
+      - name: Activate release
+        run: |
+          RELEASE="everywhere-tools-${GITHUB_SHA}"
+          ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "set -eux
+            cd '${APP_PATH}/releases/${RELEASE}'
+            tar -xzf release.tgz
+            rm release.tgz
+            test -f '${APP_PATH}/shared/.env.production'
+            ln -sTfn '${APP_PATH}/releases/${RELEASE}' '${APP_PATH}/current'
+            sudo systemctl restart everywhere-tools
+            sudo systemctl reload nginx
+            ls -1dt '${APP_PATH}/releases'/* | tail -n +6 | xargs -r rm -rf"
+
+      - name: Smoke test
+        run: |
+          for attempt in {1..30}; do
+            if ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "curl --fail --silent --show-error http://127.0.0.1:${APP_PORT}/api/health >/dev/null" \
+              && curl --fail --silent --show-error "$APP_URL" >/dev/null; then
+              exit 0
+            fi
+            echo "Smoke test attempt ${attempt}/30 failed; retrying in 5 seconds..."
+            sleep 5
+          done
+          ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "systemctl status everywhere-tools --no-pager; curl -I http://127.0.0.1:${APP_PORT}/api/health"
+          curl --fail --show-error "$APP_URL"
