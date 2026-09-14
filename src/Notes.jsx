@@ -35,6 +35,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getInitialSyncCode()))
   const [error, setError] = useState('')
   const [syncStatus, setSyncStatus] = useState('Connecting…')
+  const [noteActionStatus, setNoteActionStatus] = useState('')
   const [clientId] = useState(() => crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`)
   const saveTimerRef = useRef(null)
   const latestContentRef = useRef(notes)
@@ -130,8 +131,8 @@ function App() {
     }
   }
 
-  const handleChange = (e) => {
-    const newContent = e.target.value
+  const updateNote = (newContent) => {
+    setNoteActionStatus('')
     setNotes(newContent)
     latestContentRef.current = newContent
     dirtyRef.current = true
@@ -162,6 +163,21 @@ function App() {
         setSyncStatus('Save failed — keep this page open')
       }
     }, 250)
+  }
+
+  const copyNote = async () => {
+    try {
+      await navigator.clipboard.writeText(notes)
+      setNoteActionStatus('Note copied to clipboard.')
+    } catch {
+      setNoteActionStatus('Could not copy. Select the note text and copy it manually.')
+    }
+  }
+
+  const clearNote = () => {
+    if (confirm('Clear this note for everyone in this session?')) {
+      updateNote('')
+    }
   }
 
   const copyToClipboard = () => {
@@ -269,12 +285,19 @@ function App() {
         </div>
       )}
       
+      <div className="note-toolbar">
+        <p role="status">{noteActionStatus}</p>
+        <div className="actions">
+          <button type="button" onClick={copyNote} disabled={!notes}>Copy</button>
+          <button type="button" onClick={clearNote} disabled={!notes}>Clear</button>
+        </div>
+      </div>
       <main className="main">
         <textarea
           className="note-textarea"
           aria-label="Shared note"
           value={notes}
-          onChange={handleChange}
+          onChange={(event) => updateNote(event.target.value)}
           placeholder="Start typing... your notes will sync with anyone using the same code!"
           autoFocus
         />
