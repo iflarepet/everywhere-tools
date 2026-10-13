@@ -28,6 +28,9 @@ test('notes and chat sync, isolate rooms, reject invalid input, and survive rest
   try {
     await start()
     assert.deepEqual(await request("/api/health"), { status: 200, data: { status: "ok" } })
+    const healthHead = await fetch(base + '/api/health', { method: 'HEAD' })
+    assert.equal(healthHead.status, 200)
+    assert.equal(await healthHead.text(), '')
     const note = (await request('/api/sessions', 'POST')).data
     assert.match(note.code, /^[A-HJ-NP-Z2-9]{8}$/)
     await request(`/api/notes/${note.code}`, 'PUT', { content: 'Shared note', clientId: 'device-one' })

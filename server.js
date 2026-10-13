@@ -180,7 +180,11 @@ async function handleApi(request, response, pathname) {
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", "http://localhost");
-  if (url.pathname === "/api/health" && request.method === "GET") { sendJson(response, existsSync(indexFile) ? 200 : 503, { status: existsSync(indexFile) ? "ok" : "missing-build" }); return; }
+  if (url.pathname === "/api/health" && ["GET", "HEAD"].includes(request.method)) {
+    const ready = existsSync(indexFile);
+    sendJson(response, ready ? 200 : 503, { status: ready ? "ok" : "missing-build" });
+    return;
+  }
   if (await handleChat(request, response, url.pathname)) return;
   if (await handleApi(request, response, url.pathname)) return;
   if (url.pathname.startsWith("/api/")) { sendJson(response, 404, { error: "Not found" }); return; }

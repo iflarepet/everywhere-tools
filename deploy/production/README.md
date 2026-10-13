@@ -78,6 +78,14 @@ Open all five tools through the HTTPS hostname. Verify notes/chat on two devices
 
 Nginx buffering and caching are disabled so Server-Sent Events arrive immediately. Its 90-second timeout exceeds the 20-second heartbeat. Access logging is disabled for this virtual host because URLs contain room codes. Configure equivalent behavior in any additional proxy.
 
+## Smoke test troubleshooting
+
+The GitHub workflow checks the application on the VPS first, then checks the public `/api/health` URL separately. Set the production environment variable `PROD_EVERYWHERE_TOOLS_URL` to `https://tools.flare.pet` (an existing variable overrides the workflow default).
+
+If the public response is `403` with `cf-mitigated: challenge`, Cloudflare is serving a browser challenge that curl cannot complete. Inspect the matching Cloudflare security event and exclude only `GET`/`HEAD` requests for hostname `tools.flare.pet` and exact path `/api/health` from the challenge-producing rule. Keep protection on the other routes. Verify `curl --fail https://tools.flare.pet/api/health` returns `{"status":"ok"}`, then rerun the workflow. Switching from HTTP to HTTPS alone does not fix this challenge.
+
+Older releases returned 404 to `curl -I /api/health` because they only supported GET. Use `curl --include http://127.0.0.1:3007/api/health` to check those releases; current code supports both GET and HEAD. A running systemd process alone does not confirm a healthy application.
+
 ## Rollback and data
 
 `activate.sh` switches the active symlink atomically and restores the previous release if the local startup health check fails. HTTPS failures are reported separately; inspect DNS/TLS/Nginx before rolling back. To roll back manually, invoke `activate.sh` with a previous release directory. Releases are retained; remove old ones only after identifying and preserving the active and rollback targets. Future data migrations need their own restore plan.

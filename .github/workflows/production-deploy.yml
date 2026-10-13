@@ -20,7 +20,7 @@ jobs:
       DEPLOY_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
       DEPLOY_USER: ${{ secrets.PROD_SSH_USER || 'github-deploy' }}
       APP_PATH: ${{ vars.PROD_EVERYWHERE_TOOLS_PATH || '/var/www/everywhere-tools' }}
-      APP_URL: ${{ vars.PROD_EVERYWHERE_TOOLS_URL || 'http://tools.flare.pet' }}
+      APP_URL: ${{ vars.PROD_EVERYWHERE_TOOLS_URL || 'https://tools.flare.pet' }}
       APP_PORT: ${{ vars.PROD_EVERYWHERE_TOOLS_PORT || '3007' }}
 
     steps:
@@ -88,15 +88,37 @@ jobs:
             sudo systemctl reload nginx
             ls -1dt '${APP_PATH}/releases'/* | tail -n +6 | xargs -r rm -rf"
 
-      - name: Smoke test
+      - name: Smoke test application on VPS
         run: |
           for attempt in {1..30}; do
-            if ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "curl --fail --silent --show-error http://127.0.0.1:${APP_PORT}/api/health >/dev/null" \
-              && curl --fail --silent --show-error "$APP_URL" >/dev/null; then
+            if ssh -o ConnectTimeout=10 -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "curl --fail --silent --show-error --max-time 10 http://127.0.0.1:${APP_PORT}/api/health"; then
+              echo "Application health check passed."
               exit 0
             fi
-            echo "Smoke test attempt ${attempt}/30 failed; retrying in 5 seconds..."
-            sleep 5
+            echo "Application health attempt ${attempt}/30 failed."
+            if [ "$attempt" -lt 30 ]; then sleep 5; fi
           done
-          ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "systemctl status everywhere-tools --no-pager; curl -I http://127.0.0.1:${APP_PORT}/api/health"
-          curl --fail --show-error "$APP_URL"
+          ssh -o ConnectTimeout=10 -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "systemctl status everywhere-tools --no-pager; curl --include --max-time 10 http://127.0.0.1:${APP_PORT}/api/health" || true
+          exit 1
+
+      - name: Smoke test public health endpoint
+        run: |
+          HEALTH_URL="${APP_URL%/}/api/health"
+          for attempt in {1..6}; do
+            if curl --fail --silent --show-error --location --connect-timeout 10 --max-time 20 \
+              --dump-header health-headers.txt --output health-body.txt "$HEALTH_URL"; then
+              if node --input-type=module -e 'import fs from "node:fs"; const body = JSON.parse(fs.readFileSync("health-body.txt", "utf8")); process.exit(body.status === "ok" ? 0 : 1)'; then
+                echo "Public health check passed."
+                exit 0
+              fi
+            fi
+            cat health-headers.txt
+            if grep -qi '^cf-mitigated: challenge' health-headers.txt; then
+              echo "::error::The application passed its VPS health check, but Cloudflare challenges the public health request. Exclude GET/HEAD /api/health on this hostname from the challenge rule, then rerun deployment."
+              exit 1
+            fi
+            echo "Public health attempt ${attempt}/6 failed: $HEALTH_URL"
+            if [ "$attempt" -lt 6 ]; then sleep 5; fi
+          done
+          echo "::error::Public health check failed after the VPS application health check passed. Check DNS, TLS, Nginx, and Cloudflare."
+          exit 1
