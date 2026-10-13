@@ -19,7 +19,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['server.js', 'chat-server.js', 'tests/**/*.js'],
+    files: ['server.js', 'chat-server.js', 'scripts/**/*.js', 'tests/**/*.js'],
     languageOptions: {
       globals: globals.node,
     },

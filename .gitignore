@@ -31,3 +31,6 @@ artifacts/
 !.env.example
 *.pem
 *.key
+
+# Copied from the installed diagram package during dev/build
+public/excalidraw/

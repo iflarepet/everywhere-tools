@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import Notes from './Notes'
 import Chat from './Chat'
 import Jwt from './Jwt.jsx'
 import TextUtilities from './TextUtilities.jsx'
+const DrawIo = lazy(() => import('./DrawIo.jsx'))
 import { compareLines, formatJson } from './text-tools'
 import './notes.css'
 import './index.css'
@@ -14,6 +15,7 @@ const tools = [
   { id: 'json', name: 'JSON beautifier', description: 'Make your JSON clear and readable.', icon: 'M8 3H6a2 2 0 0 0-2 2v4l-2 3 2 3v4a2 2 0 0 0 2 2h2 M16 3h2a2 2 0 0 1 2 2v4l2 3-2 3v4a2 2 0 0 1-2 2h-2', color: 'purple' },
   { id: 'jwt', name: 'JWT decoder', description: 'Read the header and claims in a token.', icon: 'M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7Z M8 12h8 M12 8v8', color: 'green' },
   { id: 'text', name: 'Text utilities', description: 'Clean up, sort, and transform your text.', icon: 'M4 4h16 M12 4v16 M8 20h8 M4 8V4 M20 8V4', color: 'orange' },
+  { id: 'drawio', name: 'Diagram editor', description: 'Create flowcharts with connectable shapes.', icon: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M17 14l4 4m0-4l-4 4', color: 'blue' },
 ]
 
 function Icon({ path }) { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg> }
@@ -55,7 +57,7 @@ export default function App() {
   const page = window.location.pathname.split('/')[1]
   const current = tools.find(tool => tool.id === page)
   return <><header className="shell-header"><a href="/" className="brand"><span className="brand-mark">e<span>·</span></span>everywhere<span className="brand-light"> / tools</span></a><a className="home-link" href="/">All tools <span aria-hidden="true">↗</span></a></header>
-    {!current ? <main className="home"><div className="eyebrow">YOUR EVERYDAY TOOLKIT</div><h1>A little less friction.<br /><span>A lot more done.</span></h1><p className="home-intro">Pick a tool and get straight to it.</p><nav className="tool-grid" aria-label="Tools">{tools.map((tool, i) => <a className={`tool-card ${tool.color}`} href={`/${tool.id}`} key={tool.id}><div className="card-top"><div className="tool-icon"><Icon path={tool.icon} /></div><span className="card-number">0{i + 1}</span></div><h2>{tool.name}</h2><p>{tool.description}</p><div className="card-bottom"><span>Open tool</span><span aria-hidden="true">↗</span></div></a>)}</nav><div className="home-footer"><span>Six tools. One place.</span><span>Made for the way you work.</span></div></main> : <><nav className="tool-nav" aria-label="Tools">{tools.map(tool => <a href={`/${tool.id}`} aria-current={page === tool.id ? 'page' : undefined} key={tool.id}>{tool.name}</a>)}</nav>{page === 'notes' ? <div className="notes-scope"><Notes /></div> : page === 'chat' ? <Chat /> : page === 'compare' ? <Compare /> : page === 'json' ? <Json /> : page === 'jwt' ? <Jwt /> : <TextUtilities />}</>}
+    {!current ? <main className="home"><div className="eyebrow">YOUR EVERYDAY TOOLKIT</div><h1>A little less friction.<br /><span>A lot more done.</span></h1><p className="home-intro">Pick a tool and get straight to it.</p><nav className="tool-grid" aria-label="Tools">{tools.map((tool, i) => <a className={`tool-card ${tool.color}`} href={`/${tool.id}`} key={tool.id}><div className="card-top"><div className="tool-icon"><Icon path={tool.icon} /></div><span className="card-number">0{i + 1}</span></div><h2>{tool.name}</h2><p>{tool.description}</p><div className="card-bottom"><span>Open tool</span><span aria-hidden="true">↗</span></div></a>)}</nav><div className="home-footer"><span>Seven tools. One place.</span><span>Made for the way you work.</span></div></main> : <><nav className="tool-nav" aria-label="Tools">{tools.map(tool => <a href={`/${tool.id}`} aria-current={page === tool.id ? 'page' : undefined} key={tool.id}>{tool.name}</a>)}</nav>{page === 'notes' ? <div className="notes-scope"><Notes /></div> : page === 'chat' ? <Chat /> : page === 'compare' ? <Compare /> : page === 'json' ? <Json /> : page === 'jwt' ? <Jwt /> : page === 'drawio' ? <Suspense fallback={<p className="workspace" role="status">Loading diagram editor…</p>}><DrawIo /></Suspense> : <TextUtilities />}</>}
   </>
 }
 
